@@ -209,7 +209,7 @@ public class SimpleWhiteboard extends JFrame
   public SimpleWhiteboard(String nodename, int width, int height)
   {
 
-    super(String.format("<student id> whiteboard: %s", nodename));
+    super(String.format("100053671 whiteboard: %s", nodename));
     this.simpleWhiteboardPanel = new SimpleWhiteboardPanel(width, height);
     this.scrollPane = new JScrollPane(this.simpleWhiteboardPanel);
     this.getContentPane().add(this.scrollPane);
