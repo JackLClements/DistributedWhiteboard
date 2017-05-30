@@ -64,6 +64,19 @@ public class P2PClient implements Runnable {
         return this.peers;
     }
     
+    public void unpackPacket(DatagramPacket packet){
+        byte [] data = packet.getData();
+        byte msgType = data[0];
+        switch(msgType){
+            case 0: //draw
+                break;
+            case 1: //timeout
+                break;
+            case 2: //error 
+                break;
+        }
+    }
+    
     /**
      * Byte structure - do not serialize objects you wrote yourself
      * Header should be implicit, (maybe int)
@@ -82,6 +95,7 @@ public class P2PClient implements Runnable {
                 byte[] buffer = new byte[256]; //length seems arbitrary, may be set once we know length of packet
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
+                unpackPacket(packet);
             } catch (Exception e) {
                 e.printStackTrace();
             }

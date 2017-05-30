@@ -4,6 +4,7 @@ import java.io.*;
 import java.awt.*;
 import java.awt.image.*;
 import javax.swing.*;
+import tcpconnections.TCPConnection;
 
 public class SimpleWhiteboardDemo implements Runnable
 {
@@ -27,6 +28,7 @@ public class SimpleWhiteboardDemo implements Runnable
 
   public static void main(String[] args) throws Exception
   {
+      /*
     JFrame.setDefaultLookAndFeelDecorated(true);
     String nodename = "defaultnode";
     if (args.length > 0)
@@ -34,6 +36,9 @@ public class SimpleWhiteboardDemo implements Runnable
       nodename = args[0];
     }
     SimpleWhiteboardDemo simpleWhiteboardDemo = new SimpleWhiteboardDemo(nodename);
-    javax.swing.SwingUtilities.invokeLater(simpleWhiteboardDemo);
+    javax.swing.SwingUtilities.invokeLater(simpleWhiteboardDemo);*/
+      
+    TCPConnection tcp = new TCPConnection();
+    tcp.run();
   }
 }
