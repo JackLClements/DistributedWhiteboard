@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,21 +28,22 @@ public class Peer implements Runnable {
     
     public Peer() {
         peers = new ArrayList<InetAddress>();
-        clock = new LogicalClock();
     }
 
     public Peer(InetAddress myAddress) {
         peers = new ArrayList<InetAddress>();
         peers.add(myAddress);
-        clock = new LogicalClock();
     }
 
     public Peer(InetAddress myAddress, DatagramSocket socket) {
         this.socket = socket;
         peers = new ArrayList<InetAddress>();
-        peers.add(myAddress);
-        clock = new LogicalClock();
+        peers.add(myAddress);//maybe not best way to do it, set externally
         isActive = true;
+    }
+    
+    public void setClock(LogicalClock clock){
+        this.clock = clock;
     }
     
     //When node joins system it should
@@ -118,6 +120,67 @@ public class Peer implements Runnable {
         }
         System.out.println("SENT!");
     }
+    
+    /**
+     * Packet structure response - (4) type of msg int, response 1 true 0 false, next 8 bytes long corresponding timestamp 
+     * @param sender
+     * @param timestamp
+     * @param response 
+     */
+    public void sendVote(InetAddress sender, long timestamp, boolean response){
+        byte [] vote = new byte[10];
+        vote[0] = 4; //message type
+        if(response){
+            vote[1] = 1;
+        }
+        else{
+            vote[1] = 0;
+        }
+        //allocate byte to whatever
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(timestamp);
+        byte [] longArray = buffer.array();
+        for(int i = 0; i < longArray.length; i++){
+            vote[i+2] = longArray[i];
+        }
+        send(vote, sender);
+    }
+    
+    public void recieveVote(byte [] msg){
+        //pass to clock
+        clock.processVote(0, isActive);
+    }
+    
+    
+    public void sendVoteRequest(){
+         
+    }
+    
+    /**
+     * Packet structure vote request
+     * ID (decide) 5
+     * 4 BYTES - IP ADDRESS
+     * Long clock time wanted
+     * 13 bytes long?
+     * 
+     */
+    public void recieveVoteRequest(byte [] msg) throws UnknownHostException{
+        InetAddress sender = InetAddress.getByAddress(new byte[]{msg[1], msg[2],msg[3], msg[4]});
+        byte [] longBytes = new byte[8];
+        for(int i = 5; i < msg.length; i++){
+            longBytes[i-5] = msg[i];
+        }        
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.put(longBytes);
+        buffer.flip();//need flip 
+        long timestamp = buffer.getLong();
+        
+        //now we have 
+        //timestamp - timestamp requested
+        //sender - sender of request
+        boolean response = clock.pollClock(timestamp);
+        sendVote(sender, timestamp, response);
+    }
 
     /**
      * Send message Propagated via gossip - send leave, then leave
@@ -156,8 +219,12 @@ public class Peer implements Runnable {
     }
 
     /**
-     * LIST OF PACKET TYPES 1. Connection msg - add to peer list, send list of
-     * peers 2. Gossip peer msg - update peer list 3. Leave msg - leave 4.
+     * LIST OF PACKET TYPES 
+     * 1. Connection msg - add to peer list, send list of peers 
+     * 2. Gossip peer msg - update peer list 
+     * 3. Leave msg - leave 
+     * 4. Vote msg
+     * 5. Poll msg
      *
      * @param msg
      */
@@ -179,6 +246,9 @@ public class Peer implements Runnable {
                     ex.printStackTrace();
                 }
             }
+            case 4:
+                recieveVote(msg);
+                break;
             default:
 
         }
