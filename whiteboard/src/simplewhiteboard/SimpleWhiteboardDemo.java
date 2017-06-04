@@ -3,6 +3,8 @@ package simplewhiteboard;
 import java.io.*;
 import java.awt.*;
 import java.awt.image.*;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import javax.swing.*;
 import tcpconnections.TCPConnection;
 
@@ -37,8 +39,16 @@ public class SimpleWhiteboardDemo implements Runnable
     }
     SimpleWhiteboardDemo simpleWhiteboardDemo = new SimpleWhiteboardDemo(nodename);
     javax.swing.SwingUtilities.invokeLater(simpleWhiteboardDemo);*/
-      
+    /*
     TCPConnection tcp = new TCPConnection();
-    tcp.run();
+    tcp.run();*/
+    /*for(int i = 0; i < 100; i+=4){
+        System.out.println(i);
+    }*/
+    DatagramSocket s = new DatagramSocket(8888);
+    InetAddress addr = InetAddress.getByName("127.0.0.1");
+    Peer p1 = new Peer(addr, s);
+    p1.addPeer(InetAddress.getByName("255.255.255.0"));
+    p1.run();
   }
 }

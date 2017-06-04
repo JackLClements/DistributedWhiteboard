@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package simplewhiteboard;
 
 /**
@@ -10,14 +5,64 @@ package simplewhiteboard;
  * @author dha13jyu
  */
 public class LogicalClock {
-    private long timestamp;
+    private long globalTime;
+    private long localTime;
     
-    public void updateClock(){
-        //This method should move the local clock "timestamp" forward to the local clock
+    
+    
+    
+    
+    
+    /**
+     * Essentially a modified 2-phase (3 phase? Need to check) commit. Makes more sense personally as it reduces network traffic comapared to totally ordered multicast.
+     * Order of events
+     * - System sends request from one node to others & increments local clock
+     * - The request is the timestamp you *want* 
+     * - Any system that responds with "yes" must increment their local clock
+     * - Any system that responds with "no" stays the same
+     * - Once the sender gets 51%+ "yes" votes, it sends a message with a clock time and a payload
+     * - Recipients of this specific message must update their clock accordingly, as it is the result of a poll
+     * - If the sender gets 50%- "yes" votes, it increments the value it is asking for and tries again
+     */
+    
+    
+    public LogicalClock(){
+        globalTime = 0;
     }
     
-    public void dooperation(){
-        //the local clock "timestamp" should increment, perform and go
+    public void updateClock(long increment){
+        //This method should move the local clock "timestamp" forward to the local clock
+        globalTime += increment;
+    }
+    
+    
+    public void requestTimestamp(){
+        //request a timestamp for use
+    }
+    
+    //Takes the form of a commit request
+    public boolean pollClock(long newTimestamp){
+        if (newTimestamp > localTime){
+            localTime = newTimestamp;
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+    
+    //Called whenever a commit is performed
+    public void syncClock(long timestamp){
+        globalTime = timestamp;
+        localTime = timestamp; //local clock reset to timestamp too
+    }
+    
+    public long getLocalTime(){
+        return localTime;
+    }
+    
+    public long getGlobalTime(){
+        return globalTime;
     }
     
     //Other notes
