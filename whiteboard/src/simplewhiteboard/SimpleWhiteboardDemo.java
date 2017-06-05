@@ -46,9 +46,12 @@ public class SimpleWhiteboardDemo implements Runnable
         System.out.println(i);
     }*/
     DatagramSocket s = new DatagramSocket(8888);
-    InetAddress addr = InetAddress.getByName("127.0.0.1");
+    InetAddress addr = InetAddress.getByName("CMPLAB3-16");
     Peer p1 = new Peer(addr, s);
-    p1.addPeer(InetAddress.getByName("255.255.255.0"));
+    LogicalClock clock = new LogicalClock();
+    p1.setClock(clock);
+    clock.setPeer(p1);
+    p1.sendJoin(InetAddress.getByName("CMPLAB3-15"));
     p1.run();
   }
 }

@@ -46,12 +46,18 @@ public class LogicalClock {
         localTime += increment;
     }
 
-    public synchronized void requestTimestamp() {
+    /**
+     * Requests new timestamp, setting up poll (when called from peer class)
+     * returns localTime
+     * @return 
+     */
+    public synchronized long requestTimestamp() {
         updateClock(1);
         //send poll message;
         yesVotes = 0;
         noVotes = 0;
-
+        System.out.println("Requesting timestamp - " + localTime);
+        return localTime;
     }
 
     public synchronized void processVote(long pollTime, boolean vote) { //note need mechanism to stop spamming requests for returning packets
@@ -62,12 +68,14 @@ public class LogicalClock {
                 noVotes++;
             }
         }
-        if(yesVotes >= noOfPeers/2){ //if you have 51%+ of vote
+        if(yesVotes > noOfPeers/2){ //if you have 51%+ of vote
+            System.out.println("YOU WIN");
             syncClock(localTime);
             //send commit msg via Peer class
         }
         if(noVotes > noOfPeers/2){
-            requestTimestamp();
+            System.out.println("Go again");
+            peer.sendVoteRequest();
         }
     }
 
@@ -85,6 +93,7 @@ public class LogicalClock {
     public synchronized void syncClock(long timestamp) {
         globalTime = timestamp;
         localTime = timestamp; //local clock reset to timestamp too
+        System.out.println("CLOCK SYNCED TO VALUE - " + timestamp); 
     }
 
     public long getLocalTime() {

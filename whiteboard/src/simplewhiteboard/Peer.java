@@ -46,6 +46,34 @@ public class Peer implements Runnable {
         this.clock = clock;
     }
     
+    /**
+     * Packet structure - ID. 1 byte 0
+     * Own IP, bytes 1-4
+     * @param entryPoint 
+     */
+    public void sendJoin(InetAddress entryPoint){
+        byte [] joinMsg = new byte[5];
+        joinMsg[0] = 1;
+        for(int i = 0; i < 4; i++){
+            joinMsg[i+1] = peers.get(0).getAddress()[i];
+        }
+        send(joinMsg, entryPoint);
+        System.out.println("JOINING - " + entryPoint.toString());
+    }
+    
+    public void recieveJoin(byte [] msg){
+        byte[] IP = new byte[]{msg[1], msg[2], msg[3], msg[4]};
+        try {
+            InetAddress joiner = InetAddress.getByAddress(IP);
+            peers.add(joiner);
+            gossipPeer();
+        } catch (UnknownHostException ex) {
+            ex.printStackTrace();
+        }
+        System.out.println("Join recieved!");
+        
+    }
+    
     //When node joins system it should
     //Get total time & update clock accordingly
     //Ask nearest peer to relay all WB progress thus far inc. ordering
@@ -81,7 +109,7 @@ public class Peer implements Runnable {
             byte[] IP = new byte[]{peerMessage[i], peerMessage[i + 1], peerMessage[i + 2], peerMessage[i + 3]};
             try {
                 tempIP = InetAddress.getByAddress(IP);
-                peers.add(tempIP);
+                addPeer(tempIP);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -148,17 +176,46 @@ public class Peer implements Runnable {
     
     public void recieveVote(byte [] msg){
         //pass to clock
-        clock.processVote(0, isActive);
+        boolean response = false;
+        if(msg[1] == 1){
+            response = true;
+        }
+        byte [] longBytes = new byte[8];
+        for(int i = 0; i < 8; i++){
+            longBytes[i] = msg[i+2];
+        }
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.put(longBytes);
+        buffer.flip();//need flip 
+        long timestamp = buffer.getLong();
+        clock.processVote(timestamp, response);
     }
     
-    
+    /**
+     * Constructs vote request
+     * Calls clock for next timestamp and sets up parameters for clock polling
+     */
     public void sendVoteRequest(){
          byte [] voteReqByte = new byte[13];
          voteReqByte[0] = 5;
          for(int i = 0; i < 4; i++){
-             voteReqByte[i+1] = peers.get(i).getAddress()[i];
+             voteReqByte[i+1] = peers.get(0).getAddress()[i];
          }
-         
+         //call Clock for time wanted
+         long stamp = clock.requestTimestamp();
+         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+         buffer.putLong(stamp);
+         byte [] longArray = buffer.array();
+         for(int i = 0; i < longArray.length; i++){
+             voteReqByte[i+5] = longArray[i];
+         }
+         for (int i = 1; i < peers.size(); i++) {
+            InetAddress peer = peers.get(i);
+            send(voteReqByte, peer);
+         }
+         System.out.println("Vote ID - " + voteReqByte[0]);
+         System.out.println("IP - " + voteReqByte[1] + "." + voteReqByte[2] + "." + voteReqByte[3] + "." + voteReqByte[4]);
+         System.out.println("Timestamp - " + stamp);
     }
     
     /**
@@ -171,8 +228,9 @@ public class Peer implements Runnable {
      */
     public void recieveVoteRequest(byte [] msg) throws UnknownHostException{
         InetAddress sender = InetAddress.getByAddress(new byte[]{msg[1], msg[2],msg[3], msg[4]});
+        System.out.println("RECIEVED VOTE REQ FROM IP - " + sender.toString());
         byte [] longBytes = new byte[8];
-        for(int i = 5; i < msg.length; i++){
+        for(int i = 5; i < 13; i++){
             longBytes[i-5] = msg[i];
         }        
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -184,6 +242,7 @@ public class Peer implements Runnable {
         //timestamp - timestamp requested
         //sender - sender of request
         boolean response = clock.pollClock(timestamp);
+        System.out.println(response);
         sendVote(sender, timestamp, response);
     }
 
@@ -239,6 +298,7 @@ public class Peer implements Runnable {
             case 0:
                 break;
             case 1:
+                recieveJoin(msg);
                 break;
             case 2:
                 recievePeer(msg);
@@ -254,6 +314,15 @@ public class Peer implements Runnable {
             case 4:
                 recieveVote(msg);
                 break;
+            case 5:
+        {
+            try {
+                recieveVoteRequest(msg);
+            } catch (UnknownHostException ex) {
+                ex.printStackTrace();
+            }
+        }
+                break;
             default:
 
         }
@@ -263,18 +332,19 @@ public class Peer implements Runnable {
     public void run() {
         //read incoming msgs
         //unpack according to type
-        gossipPeer();
-        //while (isActive) {
-
-        try {
-            byte[] buffer = new byte[256]; //length seems arbitrary, may be set once we know length of packet
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            socket.receive(packet);
-            processMessage(packet.getData());
-        } catch (Exception e) {
-            e.printStackTrace();
+        //gossipPeer();
+        sendVoteRequest();
+        while (isActive) {
+        
+            try {
+                byte[] buffer = new byte[256]; //length seems arbitrary, may be set once we know length of packet
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
+                processMessage(packet.getData());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        //}
     }
 
 }

@@ -1,4 +1,4 @@
-simplewhiteboard.SimpleWhiteboard
 simplewhiteboard.SimpleWhiteboardMenuActionListener
-simplewhiteboard.SimpleWhiteboardControls
+simplewhiteboard.SimpleWhiteboard
 simplewhiteboard.DrawMode
+simplewhiteboard.SimpleWhiteboardControls
