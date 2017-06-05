@@ -153,6 +153,11 @@ public class Peer implements Runnable {
     
     
     public void sendVoteRequest(){
+         byte [] voteReqByte = new byte[13];
+         voteReqByte[0] = 5;
+         for(int i = 0; i < 4; i++){
+             voteReqByte[i+1] = peers.get(i).getAddress()[i];
+         }
          
     }
     
