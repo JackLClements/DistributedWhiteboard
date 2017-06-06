@@ -242,6 +242,10 @@ public class SimpleWhiteboard extends JFrame
     this.setJMenuBar(this.menuBar);
     // this.scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
   }
+  
+  public SimpleWhiteboardControls getControls(){
+      return this.simpleWhiteboardControls;
+  }
 
   public SimpleWhiteboardPanel getWhiteboardPanel()
   {

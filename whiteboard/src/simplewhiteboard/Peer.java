@@ -53,6 +53,10 @@ public class Peer implements Runnable {
         this.clock = clock;
     }
     
+    public void setWhiteboard(SimpleWhiteboardControls simpleWhiteboard){
+        this.simpleWhiteboard = simpleWhiteboard;
+    }
+    
     /**
      * NOTE FOR STORAGE OF WB OPERATIONS
      * USE CLASSES IN ARRAYLIST FOR LOCAL COPY

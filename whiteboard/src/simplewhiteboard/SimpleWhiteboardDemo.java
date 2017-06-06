@@ -12,14 +12,15 @@ public class SimpleWhiteboardDemo implements Runnable
 {
   private SimpleWhiteboard simpleWhiteboard;
   private String nodename;
-  private LogicalClock clock;
-  private Peer peer;
-  private DatagramSocket socket;
 
   public SimpleWhiteboardDemo(String nodename)
   {
     this.nodename = nodename;
     this.simpleWhiteboard = new SimpleWhiteboard(this.nodename, 1000, 1000);
+  }
+  
+  public SimpleWhiteboardControls getControls(){
+      return this.simpleWhiteboard.getControls();
   }
 
   public void run()
@@ -28,21 +29,6 @@ public class SimpleWhiteboardDemo implements Runnable
     this.simpleWhiteboard.setPreferredSize(new Dimension(1000, 1000));
     this.simpleWhiteboard.pack();
     this.simpleWhiteboard.setVisible(true);
-    
-    //network stuff
-    //note whiteboard lag is not the fault of the network it's the fault of the java stuff
-    try{
-        this.socket = new DatagramSocket(8888);
-        InetAddress addr = InetAddress.getByName("DESKTOP-G6CK49G");
-        this.peer = new Peer(addr, socket);
-        this.clock = new LogicalClock();
-        clock.setPeer(peer);
-        peer.setClock(clock);
-        //new Thread(peer).start();
-    }
-    catch(Exception e){
-        e.printStackTrace();
-    }
     
   }
 
@@ -72,7 +58,16 @@ public class SimpleWhiteboardDemo implements Runnable
     SimpleWhiteboardDemo simpleWhiteboardDemo = new SimpleWhiteboardDemo(nodename);
     javax.swing.SwingUtilities.invokeLater(simpleWhiteboardDemo);
     
-      
+    DatagramSocket s = new DatagramSocket(8888);
+    InetAddress addr = InetAddress.getByName("CMPLAB3-16");
+    Peer p1 = new Peer(addr, s);
+    LogicalClock clock = new LogicalClock();
+    p1.setClock(clock);
+    clock.setPeer(p1);
+    p1.sendJoin(InetAddress.getByName("CMPLAB3-15"));
+    p1.setWhiteboard(simpleWhiteboardDemo.getControls());
+    //need to also link peer to WB
+    new Thread(p1).start();
       
   }
 }
