@@ -1,5 +1,7 @@
 package simplewhiteboard;
 
+import java.awt.Color;
+import java.awt.Point;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -26,6 +28,11 @@ public class Peer implements Runnable {
     private boolean isActive;
     private LogicalClock clock;
     
+    //whiteboard stuff
+    SimpleWhiteboardControls simpleWhiteboard;
+    //data structure for WB events
+    
+    
     public Peer() {
         peers = new ArrayList<InetAddress>();
     }
@@ -44,6 +51,88 @@ public class Peer implements Runnable {
     
     public void setClock(LogicalClock clock){
         this.clock = clock;
+    }
+    
+    /**
+     * NOTE FOR STORAGE OF WB OPERATIONS
+     * USE CLASSES IN ARRAYLIST FOR LOCAL COPY
+     * WHEN SENDING OVER THE WIRE
+     * COPY DATA INTO BYTE STREAMS IN FORMAT EVENT, X/Y, DATA
+     * THEN ADD INTO ARRAYLIST ON OTHER END
+     */
+    
+    /**
+     * Packet structure for whiteboard line operation
+     * 0 - Event no. (6)
+     * 1, 2 - x1 y1 (int)
+     * 3, 4 - x2, y2 (int)
+     * colour - focus on later lol
+     * 5-13 - clock time
+     * @param event
+     * @param clocktime 
+     */
+    public void sendLine(WBLineEvent event, long clocktime){
+        byte [] lineMsg = new byte[25];
+        lineMsg[0] = 6;
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.putInt(event.getPoint()[0]);
+        buffer.putInt(event.getPoint()[1]);
+        buffer.putInt(event.getEndpoint()[0]);
+        buffer.putInt(event.getEndpoint()[1]); //4 bytes each
+        byte [] intArray = buffer.array();
+        for(int i = 0; i < intArray.length; i++){
+            lineMsg[i+1] = intArray[i];
+        }
+        ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(clocktime);
+        byte [] longArray = buffer2.array();
+        for(int i = 0; i < longArray.length; i++){
+            lineMsg[i+17] = longArray[i];
+        }
+        for(InetAddress peer : peers){
+            send(lineMsg, peer);
+        }
+    }
+    
+    public void recieveLine(byte [] msg){
+        int x1, x2, y1, y2;
+        byte [] intBytes = new byte[]{msg[1], msg[2], msg[3], msg[4]};
+        
+        //Buffer ints in. Could automate, pressed for time.
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.put(intBytes);
+        buffer.flip();//need flip 
+        x1 = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[5], msg[6], msg[7], msg[8]};
+        buffer.put(intBytes);
+        buffer.flip();
+        y1 = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[9], msg[10], msg[11], msg[12]};
+        buffer.put(intBytes);
+        buffer.flip();
+        x2 = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[13], msg[14], msg[15], msg[16]};
+        buffer.put(intBytes);
+        buffer.flip();
+        y2 = buffer.getInt();
+        
+        //Buffer for long timestamp
+        ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
+        byte [] longBytes = new byte[8];
+        for(int i = 0; i < longBytes.length; i++){
+            longBytes[i] = msg[i+17];
+        }
+        
+        
+        //temp colouring
+        Color newColor = new Color(0, 0, 0);
+        
+        WBLineEvent event = new WBLineEvent(x1, y1, x2, y2, newColor);
+        simpleWhiteboard.drawOtherLine(new Point(x1, y1), new Point(x2, y2), newColor);
+        //add to thing & draw
     }
     
     /**
@@ -322,6 +411,13 @@ public class Peer implements Runnable {
                 ex.printStackTrace();
             }
         }
+                break;
+            case 6:
+                
+                break;
+            case 7:
+                break;
+            case 8:
                 break;
             default:
 

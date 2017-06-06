@@ -11,6 +11,7 @@ enum DrawMode
 
 class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseListener, KeyListener
 {
+  //original
   private SimpleWhiteboardPanel simpleWhiteboardPanel;
   private JComboBox drawModeComboBox;
   private JButton colorButton;
@@ -20,7 +21,14 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
   private Point point;
   private String fontname;
   private int fontsize;
-
+  
+  //P2P stuff
+  Peer peer;
+  
+  public void setPeer(Peer peer){
+      this.peer = peer;
+  }
+  
   public SimpleWhiteboardControls(SimpleWhiteboardPanel simpleWhiteboardPanel)
   {
     super();
@@ -44,12 +52,18 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
   {
     if (this.point == null)
     {
+      //marks start point - not needed for sending
       this.point = newPoint;
     }
     else
     {
       this.point = this.simpleWhiteboardPanel.drawLine(this.point, newPoint, this.color);
     }
+  }
+  
+  //draws non-user line
+  public void drawOtherLine(Point p1, Point p2, Color colorToUse){
+      simpleWhiteboardPanel.drawLine(p1, p2, colorToUse);
   }
 
   public void drawString(String s)
