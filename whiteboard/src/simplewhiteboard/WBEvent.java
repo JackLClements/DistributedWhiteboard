@@ -29,4 +29,14 @@ public class WBEvent implements Serializable {
         return this.colour;
     }
     
+    @Override
+    public String toString(){
+        StringBuilder sb = new StringBuilder();
+        sb.append("Event with elements X ");
+        sb.append(x);
+        sb.append(" and Y ");
+        sb.append(y);
+        return sb.toString();
+    }
+    
 }

@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Point;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import static java.lang.Thread.sleep;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -11,6 +12,9 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,6 +38,8 @@ public class Peer implements Runnable {
     
     //data structure for WB events
     private ArrayList<WBEvent> events;
+    private TreeMap<Long, WBEvent> values;
+    
     
     public Peer() {
         peers = new ArrayList<InetAddress>();
@@ -52,6 +58,7 @@ public class Peer implements Runnable {
         peers.add(myAddress);//maybe not best way to do it, set externally
         events = new ArrayList<WBEvent>();
         isActive = true;
+        values = new TreeMap<Long, WBEvent>();
     }
     
     public void setClock(LogicalClock clock){
@@ -60,6 +67,40 @@ public class Peer implements Runnable {
     
     public void setWhiteboard(SimpleWhiteboardControls simpleWhiteboard){
         this.simpleWhiteboard = simpleWhiteboard;
+    }
+    
+    public void redraw(){
+        this.simpleWhiteboard.clearBoard();
+        for(Map.Entry<Long, WBEvent> entry : values.entrySet()){
+            if(entry.getValue() instanceof WBLineEvent){
+                WBLineEvent line = (WBLineEvent) entry.getValue();
+                simpleWhiteboard.drawOtherLine(new Point(line.getPoint()[0], line.getPoint()[1]), new Point(line.getEndpoint()[0], line.getEndpoint()[1]), entry.getValue().getColour());
+            }
+            if(entry.getValue() instanceof WBTextEvent){
+                WBTextEvent text = (WBTextEvent) entry.getValue();
+                simpleWhiteboard.drawOtherString(new Point(text.getPoint()[0], text.getPoint()[1]), text.getText(), text.getColour());
+            }
+        }
+    }
+    
+    public void slowRedraw(){
+        this.simpleWhiteboard.clearBoard();
+        for(Map.Entry<Long, WBEvent> entry : values.entrySet()){
+            if(entry.getValue() instanceof WBLineEvent){
+                WBLineEvent line = (WBLineEvent) entry.getValue();
+                simpleWhiteboard.drawOtherLine(new Point(line.getPoint()[0], line.getPoint()[1]), new Point(line.getEndpoint()[0], line.getEndpoint()[1]), entry.getValue().getColour());
+            }
+            if(entry.getValue() instanceof WBTextEvent){
+                WBTextEvent text = (WBTextEvent) entry.getValue();
+                simpleWhiteboard.drawOtherString(new Point(text.getPoint()[0], text.getPoint()[1]), text.getText(), text.getColour());
+            }
+            try {
+            sleep(1000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        }
+        
     }
     
     /**
@@ -162,9 +203,20 @@ public class Peer implements Runnable {
         //temp colouring
         Color newColor = new Color(red, green, blue);
         WBLineEvent event = new WBLineEvent(x1, y1, x2, y2, newColor);
-        events.add(event); //Note you cannot add "in" elements, you need to check timestamp continuity
-        simpleWhiteboard.drawOtherLine(new Point(x1, y1), new Point(x2, y2), newColor);
-        //add to thing & draw
+        values.put(timestamp, event);
+        for(Map.Entry<Long, WBEvent> entry : values.entrySet()){
+            System.out.println("Key - " + entry.getKey() + " Value - " + entry.getValue().toString());
+        }
+        
+        if(timestamp > values.lastKey()+1 || timestamp < values.lastKey()){
+            values.put(timestamp, event);
+            System.out.println("REDRAWN");
+            redraw();
+        }
+        else{
+            values.put(timestamp, event);
+            simpleWhiteboard.drawOtherLine(new Point(x1, y1), new Point(x2, y2), newColor);
+        }
     }
     
      /**

@@ -87,6 +87,10 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
       System.out.println("DRAWING STRING FROM - " + p1.toString() + " " + s);
       this.point = this.simpleWhiteboardPanel.drawString(s, p1, this.fontname, this.fontsize, colorToUse);
   }
+  
+  public void clearBoard(){
+      this.simpleWhiteboardPanel.clearWhiteboard();
+  }
 
   public void syncState()
   {

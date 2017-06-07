@@ -77,4 +77,12 @@ public class SimpleWhiteboardPanel extends JPanel
     Graphics g = graphics.create();
     g.drawImage(this.image, 0, 0, null);
   }
+  
+  public void clearWhiteboard(){
+      Graphics g = this.image.getGraphics();
+      g.clearRect(0, 0, this.image.getHeight(), this.image.getWidth());
+      g.setColor(Color.WHITE);
+      g.fillRect(0, 0, image.getWidth(), image.getHeight());
+      this.repaint();
+  }
 }
