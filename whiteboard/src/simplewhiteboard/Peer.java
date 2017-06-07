@@ -3,11 +3,13 @@ package simplewhiteboard;
 import java.awt.Color;
 import java.awt.Point;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,7 +24,6 @@ import java.util.logging.Logger;
 public class Peer implements Runnable {
 
     //Logical clock
-    //Something else
     private ArrayList<InetAddress> peers;
     private DatagramSocket socket;
     private boolean isActive;
@@ -30,15 +31,18 @@ public class Peer implements Runnable {
     
     //whiteboard stuff
     SimpleWhiteboardControls simpleWhiteboard;
-    //data structure for WB events
     
+    //data structure for WB events
+    private ArrayList<WBEvent> events;
     
     public Peer() {
         peers = new ArrayList<InetAddress>();
+        events = new ArrayList<WBEvent>();
     }
 
     public Peer(InetAddress myAddress) {
         peers = new ArrayList<InetAddress>();
+        events = new ArrayList<WBEvent>();
         peers.add(myAddress);
     }
 
@@ -46,6 +50,7 @@ public class Peer implements Runnable {
         this.socket = socket;
         peers = new ArrayList<InetAddress>();
         peers.add(myAddress);//maybe not best way to do it, set externally
+        events = new ArrayList<WBEvent>();
         isActive = true;
     }
     
@@ -70,28 +75,31 @@ public class Peer implements Runnable {
      * 0 - Event no. (6)
      * 1, 2 - x1 y1 (int)
      * 3, 4 - x2, y2 (int)
-     * colour - focus on later lol
-     * 5-13 - clock time
+     * colour - red, blue, green (5-8, 9-12, 13-16)
+     * 17-25 - clock time
      * @param event
      * @param clocktime 
      */
     public void sendLine(WBLineEvent event, long clocktime){
-        byte [] lineMsg = new byte[25];
+        byte [] lineMsg = new byte[37];
         lineMsg[0] = 6;
-        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES*7);
         buffer.putInt(event.getPoint()[0]);
         buffer.putInt(event.getPoint()[1]);
         buffer.putInt(event.getEndpoint()[0]);
         buffer.putInt(event.getEndpoint()[1]); //4 bytes each
+        buffer.putInt(event.getColour().getRed());
+        buffer.putInt(event.getColour().getGreen());
+        buffer.putInt(event.getColour().getBlue());
         byte [] intArray = buffer.array();
         for(int i = 0; i < intArray.length; i++){
             lineMsg[i+1] = intArray[i];
         }
         ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
-        buffer.putLong(clocktime);
+        buffer2.putLong(clocktime);
         byte [] longArray = buffer2.array();
         for(int i = 0; i < longArray.length; i++){
-            lineMsg[i+17] = longArray[i];
+            lineMsg[i+29] = longArray[i];
         }
         for(InetAddress peer : peers){
             send(lineMsg, peer);
@@ -99,11 +107,11 @@ public class Peer implements Runnable {
     }
     
     public void recieveLine(byte [] msg){
-        int x1, x2, y1, y2;
+        int x1, x2, y1, y2, red, green, blue;
         byte [] intBytes = new byte[]{msg[1], msg[2], msg[3], msg[4]};
         
         //Buffer ints in. Could automate, pressed for time.
-        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES*7);
         buffer.put(intBytes);
         buffer.flip();//need flip 
         x1 = buffer.getInt();
@@ -122,20 +130,153 @@ public class Peer implements Runnable {
         buffer.put(intBytes);
         buffer.flip();
         y2 = buffer.getInt();
+        buffer.clear();
+        
+        intBytes = new byte[]{msg[17], msg[18], msg[19], msg[20]};
+        buffer.put(intBytes);
+        buffer.flip();
+        red = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[21], msg[22], msg[23], msg[24]};
+        buffer.put(intBytes);
+        buffer.flip();
+        green = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[25], msg[26], msg[27], msg[28]};
+        buffer.put(intBytes);
+        buffer.flip();
+        blue = buffer.getInt();
+        buffer.clear();
+        
         
         //Buffer for long timestamp
         ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
         byte [] longBytes = new byte[8];
         for(int i = 0; i < longBytes.length; i++){
-            longBytes[i] = msg[i+17];
+            longBytes[i] = msg[i+29];
+        }
+        buffer2.put(longBytes);
+        buffer2.flip();
+        long timestamp = buffer2.getLong();
+        System.out.println(timestamp);
+        //temp colouring
+        Color newColor = new Color(red, green, blue);
+        WBLineEvent event = new WBLineEvent(x1, y1, x2, y2, newColor);
+        events.add(event); //Note you cannot add "in" elements, you need to check timestamp continuity
+        simpleWhiteboard.drawOtherLine(new Point(x1, y1), new Point(x2, y2), newColor);
+        //add to thing & draw
+    }
+    
+     /**
+     * Packet structure for whiteboard line operation
+     * 0 - Event no. (7)
+     * colour - focus on later lol
+     * 1-4, 5-9 - x1 y1 (int)
+     * 10-13, 14-17, 18-21 color (int)
+     * 22-25 str length (int)
+     * 26-33 - clock time
+     * x-y - string
+     * @param event
+     * @param clocktime 
+     */
+    public void sendText(WBTextEvent event, long clocktime) throws UnsupportedEncodingException{
+        
+        byte [] strMsg = event.getText().getBytes("UTF-8");
+        
+        byte [] lineMsg = new byte[33 + strMsg.length];
+        lineMsg[0] = 7;
+        
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES*6);
+        
+        buffer.putInt(event.getPoint()[0]);
+        buffer.putInt(event.getPoint()[1]);
+        buffer.putInt(event.getColour().getRed());
+        buffer.putInt(event.getColour().getGreen());
+        buffer.putInt(event.getColour().getBlue());
+        buffer.putInt(strMsg.length);
+        byte [] intArray = buffer.array();
+        for(int i = 0; i < intArray.length; i++){
+            lineMsg[i+1] = intArray[i];
         }
         
+        ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
+        buffer2.putLong(clocktime);
+        byte [] longArray = buffer2.array();
+        for(int i = 0; i < longArray.length; i++){
+            lineMsg[i+25] = longArray[i];
+        }
         
+        for(int i = 0; i < strMsg.length; i++){
+            lineMsg[i+33] = strMsg[i];
+        }
+        
+        for(InetAddress peer : peers){
+            send(lineMsg, peer);
+        }
+    }
+    
+     public void recieveText(byte [] msg){
+        int x1, y1, red, green, blue, strLen;
+        byte [] intBytes = new byte[]{msg[1], msg[2], msg[3], msg[4]};
+        
+        //Buffer ints in. Could automate, pressed for time.
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES*6);
+        buffer.put(intBytes);
+        buffer.flip();//need flip 
+        x1 = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[5], msg[6], msg[7], msg[8]};
+        buffer.put(intBytes);
+        buffer.flip();
+        y1 = buffer.getInt();
+        buffer.clear();
+        
+        //colours
+        intBytes = new byte[]{msg[9], msg[10], msg[11], msg[12]};
+        buffer.put(intBytes);
+        buffer.flip();
+        red = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[13], msg[14], msg[15], msg[16]};
+        buffer.put(intBytes);
+        buffer.flip();
+        green = buffer.getInt();
+        buffer.clear();
+        intBytes = new byte[]{msg[17], msg[18], msg[19], msg[20]};
+        buffer.put(intBytes);
+        buffer.flip();
+        blue = buffer.getInt();
+        buffer.clear();
+        
+        //no of char
+        intBytes = new byte[]{msg[21], msg[22], msg[23], msg[24]};
+        buffer.put(intBytes);
+        buffer.flip();
+        strLen = buffer.getInt();
+        
+        
+        //Buffer for long timestamp
+        ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
+        byte [] longBytes = new byte[8];
+        for(int i = 0; i < longBytes.length; i++){
+            longBytes[i] = msg[i+25];
+        }
+        buffer2.put(longBytes);
+        buffer2.flip();
+        long timestamp = buffer2.getLong();
+        
+        byte [] strMsg = new byte[strLen];
+        for(int i = 0; i < strLen; i++){
+            strMsg[i] = msg[i + 33];
+        }
+        
+        String str = new String(strMsg, StandardCharsets.UTF_8);
         //temp colouring
-        Color newColor = new Color(0, 0, 0);
+        Color newColor = new Color(red, green, blue);
         
-        WBLineEvent event = new WBLineEvent(x1, y1, x2, y2, newColor);
-        simpleWhiteboard.drawOtherLine(new Point(x1, y1), new Point(x2, y2), newColor);
+        WBTextEvent event = new WBTextEvent(x1, y1, newColor, str);
+        events.add(event); //Note you cannot add "in" elements, you need to check timestamp continuity
+        simpleWhiteboard.drawOtherString(new Point(x1, y1), str, newColor);
         //add to thing & draw
     }
     
@@ -211,6 +352,7 @@ public class Peer implements Runnable {
         for (InetAddress peer : peers) {
             System.out.println(peer.toString());
         }
+        clock.setNoOfPeers(peers.size());
     }
 
     /**
@@ -267,7 +409,7 @@ public class Peer implements Runnable {
         send(vote, sender);
     }
     
-    public void recieveVote(byte [] msg){
+    public void recieveVote(byte [] msg) throws UnsupportedEncodingException{
         //pass to clock
         boolean response = false;
         if(msg[1] == 1){
@@ -288,24 +430,35 @@ public class Peer implements Runnable {
      * Constructs vote request
      * Calls clock for next timestamp and sets up parameters for clock polling
      */
-    public void sendVoteRequest(){
+    public void sendVoteRequest(WBEvent event) throws UnsupportedEncodingException{
          byte [] voteReqByte = new byte[13];
          voteReqByte[0] = 5;
          for(int i = 0; i < 4; i++){
              voteReqByte[i+1] = peers.get(0).getAddress()[i];
          }
          //call Clock for time wanted
-         long stamp = clock.requestTimestamp();
+         long stamp = clock.requestTimestamp(event);
          ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
          buffer.putLong(stamp);
          byte [] longArray = buffer.array();
          for(int i = 0; i < longArray.length; i++){
              voteReqByte[i+5] = longArray[i];
          }
-         for (int i = 1; i < peers.size(); i++) {
-            InetAddress peer = peers.get(i);
-            send(voteReqByte, peer);
+         if(peers.size() == 1){
+             if(event instanceof WBLineEvent){
+                 sendLine((WBLineEvent) event, stamp);
+             }
+             if(event instanceof WBTextEvent){
+                 sendText((WBTextEvent) event, stamp);
+             }
          }
+         else{
+            for (int i = 1; i < peers.size(); i++) {
+                InetAddress peer = peers.get(i);
+                send(voteReqByte, peer);
+            }
+         }
+         
          System.out.println("Vote ID - " + voteReqByte[0]);
          System.out.println("IP - " + voteReqByte[1] + "." + voteReqByte[2] + "." + voteReqByte[3] + "." + voteReqByte[4]);
          System.out.println("Timestamp - " + stamp);
@@ -405,7 +558,13 @@ public class Peer implements Runnable {
                 }
             }
             case 4:
+        {
+            try {
                 recieveVote(msg);
+            } catch (UnsupportedEncodingException ex) {
+                ex.printStackTrace();
+            }
+        }
                 break;
             case 5:
         {
@@ -417,9 +576,10 @@ public class Peer implements Runnable {
         }
                 break;
             case 6:
-                
+                recieveLine(msg);
                 break;
             case 7:
+                recieveText(msg);
                 break;
             case 8:
                 break;
@@ -433,7 +593,7 @@ public class Peer implements Runnable {
         //read incoming msgs
         //unpack according to type
         //gossipPeer();
-        sendVoteRequest();
+        //sendVoteRequest();
         while (isActive) {
         
             try {

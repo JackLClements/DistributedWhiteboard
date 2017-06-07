@@ -1,5 +1,7 @@
 package simplewhiteboard;
 
+import java.io.UnsupportedEncodingException;
+
 /**
  *
  * @author dha13jyu
@@ -14,6 +16,9 @@ public class LogicalClock {
     //vote variables?
     private int yesVotes;
     private int noVotes;
+    
+    //queued event(?)
+    WBEvent event;
 
     /**
      * Essentially a modified 2-phase (3 phase? Need to check) commit. Makes
@@ -29,7 +34,7 @@ public class LogicalClock {
      */
     public LogicalClock() {
         globalTime = 0;
-        noOfPeers = 0;
+        noOfPeers = 1; //always going to be at least one peer in the system
     }
 
     public LogicalClock(Peer peer, long globalTime, int noOfPeers) {
@@ -45,22 +50,27 @@ public class LogicalClock {
         //This method should move the local clock "timestamp" forward to the local clock+1
         localTime += increment;
     }
-
+    
+    public void setNoOfPeers(int peers){
+        this.noOfPeers = peers;
+    }
+    
     /**
      * Requests new timestamp, setting up poll (when called from peer class)
      * returns localTime
      * @return 
      */
-    public synchronized long requestTimestamp() {
+    public synchronized long requestTimestamp(WBEvent event) {
         updateClock(1);
         //send poll message;
         yesVotes = 0;
         noVotes = 0;
+        this.event = event;
         System.out.println("Requesting timestamp - " + localTime);
         return localTime;
     }
 
-    public synchronized void processVote(long pollTime, boolean vote) { //note need mechanism to stop spamming requests for returning packets
+    public synchronized void processVote(long pollTime, boolean vote) throws UnsupportedEncodingException { //note need mechanism to stop spamming requests for returning packets
         if (pollTime == localTime) { //should ensure vote corresponds to action wanted
             if (vote) {
                 yesVotes++;
@@ -72,10 +82,18 @@ public class LogicalClock {
             System.out.println("YOU WIN");
             syncClock(localTime);
             //send commit msg via Peer class
+            if(event instanceof WBLineEvent){
+                WBLineEvent lEvent = (WBLineEvent) event;
+                peer.sendLine(lEvent, localTime);
+            }
+            if(event instanceof WBTextEvent){
+                WBTextEvent tEvent = (WBTextEvent) event;
+                peer.sendText(tEvent, localTime);
+            }
         }
         if(noVotes > noOfPeers/2){
             System.out.println("Go again");
-            peer.sendVoteRequest();
+            peer.sendVoteRequest(event);
         }
     }
 

@@ -22,6 +22,10 @@ public class SimpleWhiteboardDemo implements Runnable
   public SimpleWhiteboardControls getControls(){
       return this.simpleWhiteboard.getControls();
   }
+  
+  public void setPeerToWB(Peer peer){
+      this.simpleWhiteboard.getControls().setPeer(peer);
+  }
 
   public void run()
   {
@@ -59,13 +63,14 @@ public class SimpleWhiteboardDemo implements Runnable
     javax.swing.SwingUtilities.invokeLater(simpleWhiteboardDemo);
     
     DatagramSocket s = new DatagramSocket(8888);
-    InetAddress addr = InetAddress.getByName("CMPLAB3-16");
+    InetAddress addr = InetAddress.getByName("DESKTOP-G6CK49G");
     Peer p1 = new Peer(addr, s);
     LogicalClock clock = new LogicalClock();
     p1.setClock(clock);
     clock.setPeer(p1);
-    p1.sendJoin(InetAddress.getByName("CMPLAB3-15"));
+    //p1.sendJoin(InetAddress.getByName("CMPLAB3-15"));
     p1.setWhiteboard(simpleWhiteboardDemo.getControls());
+    simpleWhiteboardDemo.setPeerToWB(p1);
     //need to also link peer to WB
     new Thread(p1).start();
       

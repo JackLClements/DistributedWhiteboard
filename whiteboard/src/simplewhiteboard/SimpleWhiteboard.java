@@ -2,6 +2,9 @@ package simplewhiteboard;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.UnsupportedEncodingException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 
 enum DrawMode
@@ -48,7 +51,7 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
     this.fontsize = 20;
   }
 
-  public void drawLine(Point newPoint)
+  public void drawLine(Point newPoint) throws UnsupportedEncodingException
   {
     if (this.point == null)
     {
@@ -57,21 +60,32 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
     }
     else
     {
-      this.point = this.simpleWhiteboardPanel.drawLine(this.point, newPoint, this.color);
+      //this.point = this.simpleWhiteboardPanel.drawLine(this.point, newPoint, this.color);
+      WBLineEvent line = new WBLineEvent(this.point.x, this.point.y, newPoint.x, newPoint.y, this.color);
+      peer.sendVoteRequest(line);
+      //peer.sendLine(line, 0); //clocktime just set to zero for now we aren't implementing ordering just yet
     }
   }
   
   //draws non-user line
   public void drawOtherLine(Point p1, Point p2, Color colorToUse){
-      simpleWhiteboardPanel.drawLine(p1, p2, colorToUse);
+      System.out.println("DRAWING LINE FROM - " + p1.toString() + " " + p2.toString());
+      this.point = simpleWhiteboardPanel.drawLine(p1, p2, colorToUse);
   }
 
-  public void drawString(String s)
+  public void drawString(String s) throws UnsupportedEncodingException
   {
     if (this.point != null)
     {
-      this.point = this.simpleWhiteboardPanel.drawString(s, this.point, this.fontname, this.fontsize, this.color);
+      //this.point = this.simpleWhiteboardPanel.drawString(s, this.point, this.fontname, this.fontsize, this.color);
+      WBTextEvent text = new WBTextEvent(this.point.x, this.point.y, this.color, s);
+      peer.sendVoteRequest(text);
     }
+  }
+  
+  public void drawOtherString(Point p1, String s, Color colorToUse){
+      System.out.println("DRAWING STRING FROM - " + p1.toString() + " " + s);
+      this.point = this.simpleWhiteboardPanel.drawString(s, p1, this.fontname, this.fontsize, colorToUse);
   }
 
   public void syncState()
@@ -144,7 +158,13 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
     {
     case TEXT:
       String s = Character.toString(keyEvent.getKeyChar());
-      this.drawString(s);
+    {
+        try {
+            this.drawString(s);
+        } catch (UnsupportedEncodingException ex) {
+            Logger.getLogger(SimpleWhiteboardControls.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
       break;
     default:
       // ignore event if not in text mode
@@ -187,8 +207,14 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
       switch (mouseEvent.getButton())
       {
       case MouseEvent.BUTTON1:
-	//System.err.println(mouseEvent);
-	this.drawLine(newPoint);
+    {
+        try {
+            //System.err.println(mouseEvent);
+            this.drawLine(newPoint);
+        } catch (UnsupportedEncodingException ex) {
+            Logger.getLogger(SimpleWhiteboardControls.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 	break;
       case MouseEvent.BUTTON3:
 	this.point = null;
@@ -219,7 +245,7 @@ public class SimpleWhiteboard extends JFrame
   private SimpleWhiteboardControls simpleWhiteboardControls;
   private JMenuBar menuBar;
   private SimpleWhiteboardMenuActionListener menuActionListener;
-  
+   
   public SimpleWhiteboard(String nodename, int width, int height)
   {
 
@@ -241,12 +267,19 @@ public class SimpleWhiteboard extends JFrame
     this.menuBar.add(networkMenu);
     this.setJMenuBar(this.menuBar);
     // this.scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+    
+    //
+    
   }
   
   public SimpleWhiteboardControls getControls(){
       return this.simpleWhiteboardControls;
   }
-
+  
+  public void setPeer(Peer peer){
+      this.simpleWhiteboardControls.setPeer(peer);
+  }
+  
   public SimpleWhiteboardPanel getWhiteboardPanel()
   {
     return (this.simpleWhiteboardPanel);
