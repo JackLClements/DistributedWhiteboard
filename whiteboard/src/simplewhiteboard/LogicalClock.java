@@ -78,7 +78,7 @@ public class LogicalClock {
                 noVotes++;
             }
         }
-        if(yesVotes > noOfPeers/2){ //if you have 51%+ of vote
+        if(yesVotes >= noOfPeers/2){ //if you have 51%+ of vote
             System.out.println("YOU WIN");
             syncClock(localTime);
             //send commit msg via Peer class
@@ -91,7 +91,7 @@ public class LogicalClock {
                 peer.sendText(tEvent, localTime);
             }
         }
-        if(noVotes > noOfPeers/2){
+        if(noVotes >= noOfPeers/2){
             System.out.println("Go again");
             peer.sendVoteRequest(event);
         }

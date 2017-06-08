@@ -67,9 +67,10 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
     }
     else
     {
-      //this.point = this.simpleWhiteboardPanel.drawLine(this.point, newPoint, this.color);
+      //this.point = this.simpleWhiteboardPanel.drawLine(this.point, newPoint, this.color);   
       WBLineEvent line = new WBLineEvent(this.point.x, this.point.y, newPoint.x, newPoint.y, this.color);
       peer.sendVoteRequest(line);
+      this.point = newPoint;
       //peer.sendLine(line, 0); //clocktime just set to zero for now we aren't implementing ordering just yet
     }
   }
@@ -77,7 +78,8 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
   //draws non-user line
   public void drawOtherLine(Point p1, Point p2, Color colorToUse){
       System.out.println("DRAWING LINE FROM - " + p1.toString() + " " + p2.toString());
-      this.point = simpleWhiteboardPanel.drawLine(p1, p2, colorToUse);
+      //this.point = simpleWhiteboardPanel.drawLine(p1, p2, colorToUse);
+      simpleWhiteboardPanel.drawLine(p1, p2, colorToUse);
   }
 
   public void drawString(String s) throws UnsupportedEncodingException

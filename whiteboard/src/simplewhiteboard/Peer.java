@@ -37,17 +37,14 @@ public class Peer implements Runnable {
     SimpleWhiteboardControls simpleWhiteboard;
 
     //data structure for WB events
-    private ArrayList<WBEvent> events;
     private TreeMap<Long, WBEvent> values;
 
     public Peer() {
         peers = new ArrayList<InetAddress>();
-        events = new ArrayList<WBEvent>();
     }
 
     public Peer(InetAddress myAddress) {
         peers = new ArrayList<InetAddress>();
-        events = new ArrayList<WBEvent>();
         peers.add(myAddress);
     }
 
@@ -55,7 +52,6 @@ public class Peer implements Runnable {
         this.socket = socket;
         peers = new ArrayList<InetAddress>();
         peers.add(myAddress);//maybe not best way to do it, set externally
-        events = new ArrayList<WBEvent>();
         isActive = true;
         values = new TreeMap<Long, WBEvent>();
     }
@@ -141,8 +137,34 @@ public class Peer implements Runnable {
             send(lineMsg, peer);
         }
     }
+    
+    public void sendLineTo(WBLineEvent event, long clocktime, InetAddress recipient) {
+        byte[] lineMsg = new byte[37];
+        lineMsg[0] = 6;
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES * 7);
+        buffer.putInt(event.getPoint()[0]);
+        buffer.putInt(event.getPoint()[1]);
+        buffer.putInt(event.getEndpoint()[0]);
+        buffer.putInt(event.getEndpoint()[1]); //4 bytes each
+        buffer.putInt(event.getColour().getRed());
+        buffer.putInt(event.getColour().getGreen());
+        buffer.putInt(event.getColour().getBlue());
+        byte[] intArray = buffer.array();
+        for (int i = 0; i < intArray.length; i++) {
+            lineMsg[i + 1] = intArray[i];
+        }
+        ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
+        buffer2.putLong(clocktime);
+        byte[] longArray = buffer2.array();
+        for (int i = 0; i < longArray.length; i++) {
+            lineMsg[i + 29] = longArray[i];
+        }
+        send(lineMsg, recipient);
+        
+    }
 
     public void recieveLine(byte[] msg) {
+        System.out.println("Recieved Line!");
         int x1, x2, y1, y2, red, green, blue;
         byte[] intBytes = new byte[]{msg[1], msg[2], msg[3], msg[4]};
 
@@ -318,9 +340,51 @@ public class Peer implements Runnable {
         Color newColor = new Color(red, green, blue);
 
         WBTextEvent event = new WBTextEvent(x1, y1, newColor, str);
-        events.add(event); //Note you cannot add "in" elements, you need to check timestamp continuity
+        values.put(timestamp, event);
         simpleWhiteboard.drawOtherString(new Point(x1, y1), str, newColor);
         //add to thing & draw
+    }
+    
+    /**
+     * Packet structure for whiteboard line operation 0 - Event no. (7) colour -
+     * focus on later lol 1-4, 5-9 - x1 y1 (int) 10-13, 14-17, 18-21 color (int)
+     * 22-25 str length (int) 26-33 - clock time x-y - string
+     *
+     * @param event
+     * @param clocktime
+     */
+    public void sendTextTo(WBTextEvent event, long clocktime, InetAddress recipient) throws UnsupportedEncodingException {
+
+        byte[] strMsg = event.getText().getBytes("UTF-8");
+
+        byte[] lineMsg = new byte[33 + strMsg.length];
+        lineMsg[0] = 7;
+
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES * 6);
+
+        buffer.putInt(event.getPoint()[0]);
+        buffer.putInt(event.getPoint()[1]);
+        buffer.putInt(event.getColour().getRed());
+        buffer.putInt(event.getColour().getGreen());
+        buffer.putInt(event.getColour().getBlue());
+        buffer.putInt(strMsg.length);
+        byte[] intArray = buffer.array();
+        for (int i = 0; i < intArray.length; i++) {
+            lineMsg[i + 1] = intArray[i];
+        }
+
+        ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES);
+        buffer2.putLong(clocktime);
+        byte[] longArray = buffer2.array();
+        for (int i = 0; i < longArray.length; i++) {
+            lineMsg[i + 25] = longArray[i];
+        }
+
+        for (int i = 0; i < strMsg.length; i++) {
+            lineMsg[i + 33] = strMsg[i];
+        }
+
+        send(lineMsg, recipient);
     }
 
     /**
@@ -342,10 +406,15 @@ public class Peer implements Runnable {
         byte[] IP = new byte[]{msg[1], msg[2], msg[3], msg[4]};
         try {
             InetAddress joiner = InetAddress.getByAddress(IP);
-            peers.add(joiner);
+            addPeer(joiner);
             clock.setNoOfPeers(peers.size());
             gossipPeer();
-            //transfer list of events
+            try {
+                sendEvents(joiner);
+                //transfer list of events
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
+            }
         } catch (UnknownHostException ex) {
             ex.printStackTrace();
         }
@@ -374,6 +443,7 @@ public class Peer implements Runnable {
             clock.setNoOfPeers(peers.size());
         }
     }
+    
 
     /**
      * Recieve type message Propagated via gossip - update peer list
@@ -384,7 +454,9 @@ public class Peer implements Runnable {
         InetAddress tempIP;
         //NOTE - THIS IMPLEMENTATION DOES NOT SCALE PAST 127 peers per network
         int noOfEntries = (int) peerMessage[1];
-        for (int i = 2; i < noOfEntries; i += 4) {
+        System.out.println(noOfEntries);
+        for (int i = 2; i < ((noOfEntries)*4)+2; i += 4) {
+            System.out.println("Reading msg - " + peerMessage[i] + " " + peerMessage[i + 1] + " " +  peerMessage[i + 2] + " " + peerMessage[i + 3]);
             byte[] IP = new byte[]{peerMessage[i], peerMessage[i + 1], peerMessage[i + 2], peerMessage[i + 3]};
             try {
                 tempIP = InetAddress.getByAddress(IP);
@@ -393,9 +465,9 @@ public class Peer implements Runnable {
                 ex.printStackTrace();
             }
         }
-        System.out.println("Gossip'd");
         for (InetAddress peer : peers) {
-            System.out.println(peer.toString());
+            System.out.println("Recieved peer - " + peer.toString());
+            addPeer(peer);
         }
         clock.setNoOfPeers(peers.size());
     }
@@ -413,18 +485,23 @@ public class Peer implements Runnable {
         //socket.send(packetSend);
         //
         byte[] peerList = new byte[(peers.size() * 4) + 2];
+        System.out.println(peerList.length);
         peerList[0] = 2;
         peerList[1] = (byte) peers.size();
         int peerIterator = 0;
-        for (int i = 2; i < peers.size(); i += 4) { //iterate through positions
+        for (int i = 2; i < peerList.length; i += 4) { //iterate through positions
             byte[] peerIP = peers.get(peerIterator).getAddress();
             for (int j = 0; j < 4; j++) {
                 peerList[i + j] = peerIP[j];
             }
             peerIterator++;
         }
+        for(int i = 0; i < peerList.length; i++){
+            System.out.println("Byte IP - " + peerList[i]);
+        }
         for (InetAddress peer : peers) {
             send(peerList, peer);
+            System.out.println("Sending peer - " + peer.toString());
         }
         System.out.println("SENT!");
     }
@@ -470,6 +547,7 @@ public class Peer implements Runnable {
         buffer.flip();//need flip 
         long timestamp = buffer.getLong();
         clock.processVote(timestamp, response);
+        System.out.println("Vote recieved - " + response + " " + timestamp);
     }
 
     /**
@@ -551,6 +629,23 @@ public class Peer implements Runnable {
         clock.setNoOfPeers(peers.size());
         //send close to UI thread
     }
+    
+    /**
+     * 0 - ID (9?)
+     * 1 - long timestamp
+     * 2 - event type (1 = line, 2 = text)
+     * 3-? - payload
+     */
+    public void sendEvents(InetAddress target) throws UnsupportedEncodingException{
+        for(Map.Entry<Long, WBEvent> event : values.entrySet()){
+            if(event.getValue() instanceof WBLineEvent){
+                sendLineTo((WBLineEvent) event.getValue(), event.getKey(), target);
+            }
+            if(event.getValue() instanceof WBTextEvent){
+                sendTextTo((WBTextEvent) event.getValue(), event.getKey(), target);
+            }
+        }
+    }
 
     public void send(byte[] data, InetAddress reciever) {
         DatagramPacket packetSend = new DatagramPacket(data, data.length, reciever, 8888); //last one is port
@@ -560,16 +655,6 @@ public class Peer implements Runnable {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
-    }
-
-    public void connectToPeer(InetAddress peer) {
-        //send packet saying hello, pls gossip nodes
-
-    }
-
-    public void peerConnection() {
-        //unpack packet, add to list
-        //gossip to specific
     }
 
     /**

@@ -64,11 +64,12 @@ public class SimpleWhiteboardDemo implements Runnable
     
     DatagramSocket s = new DatagramSocket(8888);
     InetAddress addr = InetAddress.getByName("DESKTOP-G6CK49G");
+    System.out.println(addr.toString());
     Peer p1 = new Peer(addr, s);
     LogicalClock clock = new LogicalClock();
     p1.setClock(clock);
     clock.setPeer(p1);
-    //p1.sendJoin(InetAddress.getByName("CMPLAB3-15"));
+    //p1.sendJoin(InetAddress.getByName("192.168.0.104"));
     p1.setWhiteboard(simpleWhiteboardDemo.getControls());
     simpleWhiteboardDemo.setPeerToWB(p1);
     //need to also link peer to WB
