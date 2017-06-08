@@ -12,6 +12,7 @@ import java.net.InetAddress;
  * Abstract representation of a superpeer entry point
  * Need to know IP address of node and name of P2P network
  * Essentially a data structure thanks to Java's lack of structs
+ * NOTE - This needs a new name
  * @author Jack L. Clements
  */
 public class WBSuperpeer implements Serializable{
@@ -38,14 +39,5 @@ public class WBSuperpeer implements Serializable{
     
     public InetAddress getAddress(){
         return this.address;
-    }
-    
-    public boolean equals(WBSuperpeer peer){
-        if((this.name.equals(peer.getName())) && (this.address.equals(peer.getAddress()))){
-            return true;
-        }
-        else{
-            return false;
-        }
     }
 }

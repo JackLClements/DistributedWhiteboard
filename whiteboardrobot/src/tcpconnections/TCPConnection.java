@@ -1,3 +1,8 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
 package tcpconnections;
 
 import java.io.IOException;
@@ -28,7 +33,7 @@ public class TCPConnection implements Runnable{
     public void run() {
         InetAddress server;
         try {
-            server = InetAddress.getByName("CMPMSC-15"); //connect to TCP entry point
+            server = InetAddress.getByName("CMPLAB1-04"); //connect to TCP entry point
             Socket connection = new Socket(server, 55552);
             con = new Connection(connection);
             con.setDemo(demo);

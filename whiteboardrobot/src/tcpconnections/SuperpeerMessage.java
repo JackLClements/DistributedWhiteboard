@@ -11,15 +11,16 @@ import java.net.InetAddress;
  *
  * @author Jack L. Clements
  */
-public class DisconnectMessage extends Message {
-    static final long serialVersionUID = 103;
+public class SuperpeerMessage extends Message{
+    static final long serialVersionUID = 104;
     private String name;
     private InetAddress ip;
-    public DisconnectMessage(String header) {
+    
+    public SuperpeerMessage(String header) {
         super(header);
     }
     
-    public DisconnectMessage(String header, String name, InetAddress ip){
+    public SuperpeerMessage(String header, String name, InetAddress ip){
         super(header);
         this.name = name;
         this.ip = ip;

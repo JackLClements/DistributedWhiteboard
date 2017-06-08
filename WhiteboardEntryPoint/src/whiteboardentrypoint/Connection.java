@@ -115,6 +115,10 @@ public class Connection implements Runnable {
             WBSuperpeer peer1 = new WBSuperpeer(name, ip);
             ConnectionManager.addNewPeer(peer1);
         }
+        if(msg instanceof DisconnectMessage){
+            WBSuperpeer peer = new WBSuperpeer(((DisconnectMessage) msg).getName(),((DisconnectMessage) msg).getIP());
+            ConnectionManager.removePeer(peer);
+        }
     }
 
     /**

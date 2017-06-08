@@ -15,6 +15,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -848,7 +849,17 @@ public class Peer implements Runnable {
         //gossipPeer();
         //sendVoteRequest();
         while (isActive) {
-
+            Random rand = new Random();
+            WBLineEvent line = new WBLineEvent(rand.nextInt(1000), rand.nextInt(1000), rand.nextInt(1000), rand.nextInt(1000), new Color(0, 0, 255));
+            long potentialTimestamp = clock.requestTimestamp(line);
+            if(peers.size() == 1){
+             sendLine(line, potentialTimestamp);
+             }
+            try {
+                sleep(1000);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
+            }
             try {
                 byte[] buffer = new byte[256]; //length seems arbitrary, may be set once we know length of packet
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);

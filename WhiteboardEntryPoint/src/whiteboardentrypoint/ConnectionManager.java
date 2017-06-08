@@ -29,6 +29,11 @@ public class ConnectionManager implements Runnable {
         System.out.println("New Peer");
     }
     
+    public static synchronized void removePeer(WBSuperpeer peer){
+        whiteboards.remove(peer);
+        System.out.println("Peer removed");
+    }
+    
     //Either want public static or to update and pass to threads via listener
     //Decide later yo
     public static synchronized ArrayList<WBSuperpeer> getSuperpeers(){
