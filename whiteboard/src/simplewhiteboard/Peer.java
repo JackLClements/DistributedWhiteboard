@@ -11,6 +11,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,13 +40,21 @@ public class Peer implements Runnable {
     //data structure for WB events
     private TreeMap<Long, WBEvent> values;
 
+    
+    //timestamp for election
+    private boolean isSuperpeer;
+    private Timestamp created;
+    private int votes;
+    
     public Peer() {
         peers = new ArrayList<InetAddress>();
+        created = new Timestamp(System.currentTimeMillis());
     }
 
     public Peer(InetAddress myAddress) {
         peers = new ArrayList<InetAddress>();
         peers.add(myAddress);
+        created = new Timestamp(System.currentTimeMillis());
     }
 
     public Peer(InetAddress myAddress, DatagramSocket socket) {
@@ -54,6 +63,7 @@ public class Peer implements Runnable {
         peers.add(myAddress);//maybe not best way to do it, set externally
         isActive = true;
         values = new TreeMap<Long, WBEvent>();
+        created = new Timestamp(System.currentTimeMillis());
     }
 
     public void setClock(LogicalClock clock) {
@@ -646,6 +656,96 @@ public class Peer implements Runnable {
             }
         }
     }
+    
+    /**
+     * 0 - ID (8)
+     * 1-4 - IP address
+     * 5-12 - long timestamp  
+     */
+    public void startElection(){
+        votes = 0;
+        byte [] electionMsg = new byte[13];
+        electionMsg[0] = 8;
+        byte [] senderIP = peers.get(0).getAddress();
+        for(int i = 0; i < senderIP.length; i++){
+            electionMsg[i+1] = senderIP[i];
+        }
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(created.getTime());
+        byte [] time = buffer.array();
+        for(int i = 0; i < time.length; i++){
+            electionMsg[i+5] = time[i];
+        }
+        for(int i = 1; i < peers.size(); i++){
+            send(electionMsg, peers.get(i));
+        }
+    }
+    
+    /**
+     * response structure
+     * 0 - ID (9?)
+     * 1 - yes/no boolean
+     * @param msg 
+     */
+    public void electionResponse(byte [] msg) throws UnknownHostException{
+        byte [] electionResponsemsg = new byte[2];
+        electionResponsemsg[0] = 9;
+        
+        //unpack election msg
+        InetAddress sender = InetAddress.getByAddress(new byte[]{msg[1], msg[2], msg[3], msg[4]});
+        
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        byte [] longBytes = new byte[8];
+        for(int i = 0; i < longBytes.length; i++){
+            longBytes[i] = msg[i+5];
+        }
+        buffer.put(longBytes);
+        buffer.flip();
+        long time2 = buffer.getLong();
+        
+        if(created.getTime() < time2){
+            electionResponsemsg[1] = 0;
+            startElection();
+        }
+        else{
+            electionResponsemsg[1] = 1;
+        }
+        send(electionResponsemsg, sender);
+    }
+    
+    public void countElectionResponse(byte [] msg){
+        if(msg[1] == 0){
+            votes = 0;
+        }
+        else{
+            votes++;
+        }
+        if(votes >= peers.size()-1){
+            assertWinner();
+        }
+    }
+    
+    /**
+     * Byte 0 - 10
+     * Byte 1-4 - IP
+     */
+    public void assertWinner(){
+        byte [] winnerMsg = new byte[5];
+        byte [] winnerIP = peers.get(0).getAddress();
+        winnerMsg[0] = 10;
+        for(int i = 0; i < winnerIP.length; i++){
+            winnerMsg[i+1] = winnerIP[i];
+        }
+        //superpeer IP set to own IP/superpeer set to true
+        //contact TCP frontend, assert new winner, temp store old winner
+        for(int i = 1; i < peers.size(); i++){
+            send(winnerMsg, peers.get(i));
+        }
+    }
+    
+    public void recieveWinner(byte [] msg){
+        //set winner
+    }
 
     public void send(byte[] data, InetAddress reciever) {
         DatagramPacket packetSend = new DatagramPacket(data, data.length, reciever, 8888); //last one is port
@@ -705,6 +805,19 @@ public class Peer implements Runnable {
                 recieveText(msg);
                 break;
             case 8:
+        {
+            try {
+                electionResponse(msg);
+            } catch (UnknownHostException ex) {
+                Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+                break;
+            case 9:
+                countElectionResponse(msg);
+                break;
+            case 10:
+                recieveWinner(msg);
                 break;
             default:
 
