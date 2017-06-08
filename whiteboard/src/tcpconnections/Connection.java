@@ -7,6 +7,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Scanner;
+import simplewhiteboard.SimpleWhiteboardDemo;
 
 /**
  * For each individual connection, allows program logic to run independent of
@@ -23,6 +24,7 @@ public class Connection implements Runnable {
     private ObjectOutputStream out;
     private ObjectInputStream in;
     private boolean active;
+    private SimpleWhiteboardDemo demo;
     //Table object, set by connection manager, has references to connection objects a-la doubly linked list, 
     
     /**
@@ -49,6 +51,10 @@ public class Connection implements Runnable {
      */
     public void setOut(ObjectOutputStream out) {
         this.out = out;
+    }
+    
+    public void setDemo(SimpleWhiteboardDemo demo){
+        this.demo = demo;
     }
     
     
@@ -132,25 +138,26 @@ public class Connection implements Runnable {
                 for(WBSuperpeer peer : peers){
                     System.out.println(peer.getName() + " " + peer.getAddress());
                 }
-                send(new SuperpeerMessage("Become Superpeer", "Channel Name", socket.getLocalAddress()));
+                
                 //System.out.println("LET'S SEND THE TIME WARP AGAIN");
-                /*
                 Scanner scan = new Scanner(System.in);
                 int selection = scan.nextInt();
                 if(selection == 0){
                     //start new server
                     //set superpeer class to true
-                    
+                    demo.startSPeer();
+                    send(new SuperpeerMessage("Become Superpeer", "Channel Name", socket.getLocalAddress()));
                 }
                 else{
                     //join P2P network listed
                     //implement methods
+                    demo.startPeer(peers.get(selection-1).getAddress());
                     send(new DisconnectMessage("Disconnected."));
                 }
                 //Reads in message, processes from stream, etc.
 
                 //should pass out
-                */
+                
                 close();
             }
 
