@@ -3,7 +3,6 @@ package simplewhiteboard;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.UnsupportedEncodingException;
-import static java.lang.Thread.sleep;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
@@ -18,7 +17,7 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
   //original
   private SimpleWhiteboardPanel simpleWhiteboardPanel;
   private JComboBox drawModeComboBox;
-  private JButton colorButton, redrawButton, dcButton;
+  private JButton colorButton;
   private static String[] drawModeName = {"line", "text"};
   private DrawMode drawMode;
   private Color color;
@@ -44,12 +43,6 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
     this.colorButton = new JButton("set colour");
     this.colorButton.addActionListener(this);
     this.add(this.colorButton);
-    this.redrawButton = new JButton("redraw slowly");
-    this.redrawButton.addActionListener(this);
-    this.add(this.redrawButton);
-    this.dcButton = new JButton("Disconnect");
-    this.add(this.dcButton);
-    this.dcButton.addActionListener(this);
     this.syncState();
     this.simpleWhiteboardPanel.addMouseListener(this);
     this.simpleWhiteboardPanel.addKeyListener(this);
@@ -148,28 +141,7 @@ class SimpleWhiteboardControls extends JPanel implements ActionListener, MouseLi
     }
     else if (actionEvent.getSource() == this.colorButton)
     {
-      
       this.colorActionPerformed(actionEvent);
-    }
-    else if (actionEvent.getSource() == this.redrawButton){
-        Thread t = new Thread() {
-               @Override
-               public void run() {  // override the run() to specify the running behavior
-                  peer.slowRedraw();
-               }
-            };
-            t.start();  // call back run()
-        System.out.println("Slowly redrawing");
-    }
-    else if (actionEvent.getSource() == this.dcButton){
-        Thread t = new Thread() {
-               @Override
-               public void run() {  // override the run() to specify the running behavior
-                  peer.leave();
-               }
-            };
-            t.start();  // call back run()
-        System.out.println("Disconnected");
     }
   }
 
